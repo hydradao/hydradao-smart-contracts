@@ -2,54 +2,59 @@ pragma solidity ^0.8.0;
 
 contract RewardArray {
 
-    event RewardWinners(address[] rewardWinners);
+    event RewardWinners(uint firstIndex, address[] rewardWinners);
 
-    uint public bufferSize;
+    uint public rewardSize;
+    uint public newRewardSize;  // if 0, no new change to reward size
     uint public currIndex;
+    address[] public rewardArray;
 
-    address[] public bufferArray;
-    address public controller;
+    address public administrator;
 
-    constructor(uint _bufferSize) {
-        bufferSize = _bufferSize;
-        bufferArray = new address[](_bufferSize);
+    constructor(uint _rewardSize, address _administrator) {
+        administrator = _administrator;
+        rewardSize = _rewardSize;
+        rewardArray = new address[](_rewardSize);
         currIndex = 0;
-        controller = msg.sender;
+        newRewardSize = 0;
     }
 
     modifier onlyAuth() {
-        require(controller == msg.sender);
+        require(administrator == msg.sender);
         _;
     }
 
     modifier resetRewardWinners() {
         _;
-        eraseArray();
+        newRewardArray();
     }
 
-    function eraseArray() private {
-        delete bufferArray;
-        bufferArray = new address[](bufferSize);
+    function newRewardArray() private {
+        delete rewardArray;
+        if (newRewardSize != 0) {
+            rewardSize = newRewardSize;
+            newRewardSize = 0;
+        }
+        rewardArray = new address[](rewardSize);
         currIndex = 0;
     }
 
     function appendAddress(address _rewardWinner) external onlyAuth {
-        bufferArray[currIndex] = _rewardWinner;
-        currIndex = (currIndex + 1) % bufferSize;
+        rewardArray[currIndex] = _rewardWinner;
+        currIndex = (currIndex + 1) % rewardSize;
     }
 
     function getRewardWinners() external onlyAuth resetRewardWinners returns(address[] memory) {
-        emit RewardWinners(bufferArray);
-        return bufferArray;
+        emit RewardWinners(currIndex, rewardArray);
+        return rewardArray;
     }
 
-    function changeRewardSize(uint8 _newRewardSize) external onlyAuth {
-        bufferSize = _newRewardSize;
-        eraseArray();
+    // new reward size implemented at start of next round
+    function changeRewardSize(uint _newRewardSize) external onlyAuth {
+        newRewardSize = _newRewardSize;
     }
 
     function getRewardSize() external view returns(uint) {
-        return bufferSize;
+        return rewardSize;
     }
-    
 }
