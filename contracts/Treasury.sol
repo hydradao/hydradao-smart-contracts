@@ -4,17 +4,17 @@ import './HydraERC20.sol';
 import './RewardArray.sol';
 
 struct TreasurySettings {
-    uint slope;
-    uint currentMintPrice;
-    uint maxMintPrice;
+    uint slope; // need decimals
+    uint currentMintPrice;  // need decimals
+    uint maxMintPrice;  // need decimals
 }
 
 contract HydraTreasury {
 
     address public controller;
 
-    // address[] public whitelistedCoins;
-    mapping(address => bool) coinStatus;
+    address[] public coinList;
+    mapping(address => bool) coinStatus;    // whitelist status
 
     address[] public lastMinters;
     uint8 public numRewardedAddresses; // how many addresses rewarded at end of each round
@@ -22,13 +22,20 @@ contract HydraTreasury {
     uint public totalReserves;
 
     HydraERC20 public hydraToken;
+    RewardArray public rewardArray;
 
     TreasurySettings treasurySettings;
 
-    constructor(address _controller, uint _slope, uint256 _initialHydraSupply) {
+    constructor(address _controller, 
+        uint _slope, 
+        uint _initialHydraSupply,
+        uint _maxMintPrice) 
+    {
         controller = _controller;
         treasurySettings.slope = _slope;    // Our f(x)
-        hydraToken = new HydraERC20(_initialHydraSupply);
+        treasurySettings.maxMintPrice = _maxMintPrice;
+        hydraToken = new HydraERC20(_initialHydraSupply, _controller);
+        rewardArray = new RewardArray(50);
     }
 
     modifier onlyController() {
@@ -36,12 +43,9 @@ contract HydraTreasury {
         _;
     }
 
-    modifier validCoin(address _coin) {
-        require(coinStatus[_coin]);
-        _;
-    }
-
     function addCoinToWhitelist(IERC20 _token) external onlyController {
+        require(!coinStatus[address(_token)], "COIN ALREADY WHITELISTED");
+        coinList.push(address(_token));
         coinStatus[address(_token)] = true;
     }
 
@@ -51,19 +55,21 @@ contract HydraTreasury {
 
     function addToTreasury(IERC20 _token, uint _amountToDeposit) public {
         require(coinStatus[address(_token)], "TOKEN NOT ACCEPTED BY TREASURY");
-        require(_token.transfer(address(this), _amountToDeposit), "TRANSACTION FAILED");
+        require(_token.transferFrom(msg.sender, address(this), _amountToDeposit), "TRANSACTION FAILED");
     }
 
-    // function floorPrice() public view returns(uint) {
-    //     return hydraToken.totalSupply() / totalReserves;
-    // }
+    function getWhitelistedCoins() external view returns(address[] memory) {
+        address[] memory whitelistedCoins;
+        for (uint i = 0; i < coinList.length; i++) {
+            if (coinStatus[coinList[i]]) { 
+                whitelistedCoins[i] = coinList[i];
+            }
+        }
+        return whitelistedCoins;
+    }
 
     function getHydraSupply() public view returns(uint) {
         return hydraToken.totalSupply();
-    }
-
-    function getTreasuryValue() public view returns(uint) {
-        // Get value of all stablecoins
     }
 
     function isRoundOver() internal returns(bool) {
@@ -71,37 +77,37 @@ contract HydraTreasury {
         // Can also add other conditional(s) 
     }
 
-    function validBalance() private returns(bool) {
-        // Check if msg.sender has valid balance for minting
-    }
-
     function distributeReward() internal {
-        // Distribute rewards to last X minters
+        // Distribute rewards (prHYDRA) to last X minters
         // See RewardArray.sol
     }
 
-    function getPurchasePrice(uint _amountHYDR) public view returns(uint) {
-        uint purchasePrice = 0;
+    function resetMintRound() internal {
+        // Start new mint round
+        // Reset timer and other necessary parameters
+    }
 
+    function getPurchasePrice(uint _amountHYDR) public view returns(uint) {
         uint cmp = treasurySettings.currentMintPrice;
         uint slope = treasurySettings.slope;
 
-        purchasePrice = _amountHYDR * (cmp + (_amountHYDR ** 2) * slope / 2);
+        uint purchasePrice = _amountHYDR * (cmp + (_amountHYDR ** 2) * slope / 2);  // area under supply vs price
         return purchasePrice;
     }
 
-    function mintHYDR(uint _amountHYDR, uint maxPurchasePrice, IERC20 _token, uint _amountToDeposit) external payable {
+    function mintHYDR(uint _amountHYDR, uint _maxPurchasePrice, IERC20 _token, uint _amountForDeposit) external {
         uint purchasePrice = getPurchasePrice(_amountHYDR);
-        require(purchasePrice <= maxPurchasePrice, "MAX PURCHASE PRICE EXCEEDED");
+        require(purchasePrice <= _maxPurchasePrice, "MAX PURCHASE PRICE EXCEEDED");
+        require(purchasePrice <= _amountForDeposit, "INSUFFICIENT BALANCE");
 
-        // Check if user has enough to pay for Hydra mint
-        require(validBalance(), "USER DOES NOT HAVE VALID BALANCE");
-        addToTreasury(_token, _amountToDeposit);
+        // is it possible for the current mint price to have changed before add to
+        addToTreasury(_token, _amountForDeposit);
         hydraToken.mint(msg.sender, _amountHYDR);
 
         treasurySettings.currentMintPrice = treasurySettings.slope * _amountHYDR;
 
         // If round is over, distribute rewards and reset mint settings
+        if (isRoundOver()) distributeReward();
     }
 
 }
