@@ -1,4 +1,4 @@
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
@@ -8,8 +8,8 @@ contract HydraERC20 is ERC20 {
 
     mapping(address => bool) isMinter;
 
-    constructor(uint256 initialSupply, address _vault) ERC20("Hydra", "HYDR") {
-        _mint(msg.sender, initialSupply);
+    constructor(uint _initialSupply, address _vault) ERC20("Hydra", "HYDR") {
+        _mint(_vault, _initialSupply);
         vault = _vault;
     }
 
