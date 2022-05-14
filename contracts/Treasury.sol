@@ -2,11 +2,12 @@ pragma solidity ^0.8.0;
 
 import './HydraERC20.sol';
 import './RewardArray.sol';
+// import './interfaces/IERC20.sol';
 
 struct TreasurySettings {
-    uint slope; // need decimals
-    uint currentMintPrice;  // need decimals
-    uint maxMintPrice;  // need decimals
+    uint slope;
+    uint currentMintPrice;  
+    uint maxMintPrice;  
 }
 
 contract HydraTreasury {
@@ -58,8 +59,7 @@ contract HydraTreasury {
         require(_token.transferFrom(msg.sender, address(this), _amountToDeposit), "TRANSACTION FAILED");
     }
 
-    function getWhitelistedCoins() external view returns(address[] memory) {
-        address[] memory whitelistedCoins;
+    function getWhitelistedCoins() external view returns(address[] memory whitelistedCoins) {
         for (uint i = 0; i < coinList.length; i++) {
             if (coinStatus[coinList[i]]) { 
                 whitelistedCoins[i] = coinList[i];
@@ -68,8 +68,18 @@ contract HydraTreasury {
         return whitelistedCoins;
     }
 
-    function getHydraSupply() public view returns(uint) {
-        return hydraToken.totalSupply();
+    function getTokenValue(address _token, uint _amount) public view returns(uint) {
+        // get token value for asset deposited
+    }
+
+    function getTreasuryFloor() public returns(uint reserves) {
+        // get value of all coins in treasury and return
+        for (uint i = 0; i < coinList.length; i++) {
+            if (coinStatus[coinList[i]]) { 
+                reserves += getTokenValue(coinList[i], IERC20(coinList[i]).balanceOf(address(this)));
+            }
+        }
+        totalReserves = reserves;
     }
 
     function isRoundOver() internal returns(bool) {
@@ -84,15 +94,14 @@ contract HydraTreasury {
 
     function resetMintRound() internal {
         // Start new mint round
-        // Reset timer and other necessary parameters
+        // Reset timer, mint starting price, and other necessary parameters
     }
 
-    function getPurchasePrice(uint _amountHYDR) public view returns(uint) {
+    function getPurchasePrice(uint _amountHYDR) public view returns(uint purchasePrice) {
         uint cmp = treasurySettings.currentMintPrice;
         uint slope = treasurySettings.slope;
 
-        uint purchasePrice = _amountHYDR * (cmp + (_amountHYDR ** 2) * slope / 2);  // area under supply vs price
-        return purchasePrice;
+        purchasePrice = _amountHYDR * (cmp + (_amountHYDR ** 2) * slope / 2);  // area under supply vs price
     }
 
     function mintHYDR(uint _amountHYDR, uint _maxPurchasePrice, IERC20 _token, uint _amountForDeposit) external {
