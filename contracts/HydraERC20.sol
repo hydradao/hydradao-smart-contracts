@@ -14,12 +14,11 @@ contract HydraERC20 is ERC20 {
     }
 
     modifier onlyVault() {
-        require(msg.sender == vault, "FORBIDDEN");
+        require(msg.sender == vault, "UNAUTHORIZED");
         _;
     }
 
-    function mint(address _to, uint256 _amount) external onlyVault returns (bool) {
+    function mint(address _to, uint256 _amount) public onlyVault {
         _mint(_to, _amount);
-        return true;
     }
 }
