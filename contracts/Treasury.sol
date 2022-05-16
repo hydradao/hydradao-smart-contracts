@@ -2,6 +2,8 @@ pragma solidity ^0.8.0;
 
 import './HydraERC20.sol';
 import './RewardArray.sol';
+// import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+// can use enumerableset for token whitelist
 
 struct MintSettings {
     uint slope;
@@ -9,6 +11,11 @@ struct MintSettings {
     uint currentMintPrice;
     uint maxMintPrice;  
 }
+
+// struct Coin {
+//     bool whitelisted;
+//     address coinAddress;
+// }
 
 contract HydraTreasury {
 
@@ -24,6 +31,7 @@ contract HydraTreasury {
 
     address[] public coinList;
     mapping(address => bool) coinStatus;    // whitelist status
+    uint numWhitelistedCoins;
 
     address[] public lastMinters;
     uint8 public numRewardedAddresses; // how many addresses rewarded at end of each round
@@ -34,19 +42,22 @@ contract HydraTreasury {
     RewardArray public rewardArray;
 
     MintSettings mintSettings;
+    MintSettings newRoundMintSettings;
 
     /* ========== CONSTRUCTOR ========== */
 
     constructor(address _administrator, 
-        uint _slope, 
-        uint _initialHydraSupply,
-        uint _maxMintPrice) 
+        address _hydraToken,
+        // uint _slope,
+        // uint _maxMintPrice,
+        uint _rewardArrayLength) 
     {
         administrator = _administrator;
-        mintSettings.slope = _slope;    // Our f(x)
-        mintSettings.maxMintPrice = _maxMintPrice;
-        hydraToken = new HydraERC20(_initialHydraSupply, _administrator);
-        rewardArray = new RewardArray(50);
+        // mintSettings.slope = _slope;    // Our f(x)
+        // mintSettings.maxMintPrice = _maxMintPrice;
+        hydraToken = HydraERC20(_hydraToken);
+        rewardArray = new RewardArray(_rewardArrayLength);
+        numWhitelistedCoins = 0;
     }
 
     /* ========== MODIFIERS ========== */
@@ -60,21 +71,26 @@ contract HydraTreasury {
         require(!coinStatus[_token], "COIN ALREADY WHITELISTED");
         coinList.push(_token);
         coinStatus[_token] = true;
+        numWhitelistedCoins++;
         emit AddCoinToWhitelist(_token);
     }
 
     function removeCoinFromWhitelist(address _token) external onlyAdmin {
+        require(coinStatus[_token], "COIN NOT ON WHITELIST");
         coinStatus[_token] = false;
+        numWhitelistedCoins--;
         emit RemoveCoinFromWhitelist(_token);
     }
 
     function getWhitelistedCoins() external view returns(address[] memory whitelistedCoins) {
+        whitelistedCoins = new address[](numWhitelistedCoins);
+        uint wli = 0; // index for whitelistedCoins
         for (uint i = 0; i < coinList.length; i++) {
-            if (coinStatus[coinList[i]]) { 
-                whitelistedCoins[i] = coinList[i];
+            if (coinStatus[coinList[i]]) {
+                whitelistedCoins[wli] = coinList[i];
+                wli++;
             }
         }
-        return whitelistedCoins;
     }
 
     function addToTreasury(address _token, uint _amountToDeposit) public {
@@ -82,12 +98,13 @@ contract HydraTreasury {
         emit DepositToTreasury(_token, _amountToDeposit);
     }
 
-    function getTokenValue(address _token, uint _amount) public view returns(uint) {
+    function getTokenValue(address _token, uint _amount) public pure returns(uint tokenValue) {
         // get token value for asset deposited using oracle
+        return 1;
     }
 
     // get value of all coins in treasury and return
-    function getTreasuryFloor() public returns(uint reserves) {
+    function getTotalReserves() public returns(uint reserves) {
         for (uint i = 0; i < coinList.length; i++) {
             if (coinStatus[coinList[i]]) { 
                 reserves += getTokenValue(coinList[i], IERC20(coinList[i]).balanceOf(address(this)));
@@ -96,6 +113,7 @@ contract HydraTreasury {
         totalReserves = reserves;
     }
 
+    // Move this into smart contract controlling rounds
     function isRoundOver() internal returns(bool) {
         // Check if FOMO timer has expired. If yes, return true, else false.
         // Can also add other conditional(s) 

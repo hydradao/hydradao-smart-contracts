@@ -12,11 +12,10 @@ describe("HydraERC20", function () {
 
     const initialSupply = 100
 
-    beforeEach(async() => {
+    before(async() => {
         [vault, andrew, alan] = await ethers.getSigners();
         const HydraTokenFactory = await ethers.getContractFactory("HydraERC20")
         token = await HydraTokenFactory.deploy(initialSupply, vault.address)
-        await token.deployed()
     });
 
     it("creates an ERC20 token", async() => {
