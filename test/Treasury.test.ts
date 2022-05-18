@@ -3,7 +3,7 @@ import { expect } from "chai"
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 import type { HydraERC20, HydraTreasury, MockERC20 } from '../typechain-types'
 
-describe.only("Treasury", () => {
+describe("Treasury", async() => {
 
     let token: HydraERC20
     let vault: SignerWithAddress
@@ -11,11 +11,11 @@ describe.only("Treasury", () => {
     let andrew: SignerWithAddress
 
     let treasury: HydraTreasury
+    let treasury1: HydraTreasury
 
     let dai: MockERC20
     let frax: MockERC20
     let usdc: MockERC20
-    // usdc is 6 decimals, TODO: need to handle decimals correctly
 
     const initialSupply = 100
 
@@ -25,7 +25,8 @@ describe.only("Treasury", () => {
         token = await HydraTokenFactory.deploy(initialSupply, vault.address)
 
         const TreasuryFactory = await ethers.getContractFactory("HydraTreasury")
-        treasury = await TreasuryFactory.deploy(vault.address, token.address, 50) as HydraTreasury
+        treasury = await TreasuryFactory.deploy(vault.address, token.address) as HydraTreasury
+        treasury1 = await TreasuryFactory.deploy(vault.address, token.address) as HydraTreasury
 
         const MockERC20Factory = await ethers.getContractFactory("MockERC20")
         dai = await MockERC20Factory.deploy("Dai Stablecoin", "DAI")
@@ -57,6 +58,38 @@ describe.only("Treasury", () => {
         it("should fail to remove if not on whitelist", async() => {
             await expect(treasury.removeCoinFromWhitelist(frax.address))
             .to.be.reverted
+        })
+    })
+
+    describe("Reserves", async() => {
+
+        let andrewSpend = 100
+        let alanSpend = 200
+        const initialSupply = 1000
+
+        before(async() => {
+            await dai.mint(andrew.address, initialSupply)
+            await frax.mint(alan.address, initialSupply)
+
+            await dai.connect(andrew).approve(treasury1.address, andrewSpend)
+            await frax.connect(alan).approve(treasury1.address, alanSpend)
+            
+            await treasury1.addCoinToWhitelist(dai.address)
+            await treasury1.addCoinToWhitelist(frax.address)
+        })
+
+        it("should be able to add approved asset", async() => {
+            await treasury1.connect(andrew).addToTreasury(dai.address, andrewSpend)
+            await treasury1.connect(alan).addToTreasury(frax.address, alanSpend)
+            
+            expect(await dai.balanceOf(treasury1.address)).to.equal(andrewSpend)
+            expect(await frax.balanceOf(treasury1.address)).to.equal(alanSpend)
+        })
+
+        // it("getTokenValue", async() => {})
+
+        it("should be able to return totalReserves", async() => {
+            expect(await treasury1.getTotalReserves()).to.equal(andrewSpend + alanSpend)
         })
     })
     

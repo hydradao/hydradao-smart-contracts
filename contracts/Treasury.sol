@@ -2,8 +2,6 @@ pragma solidity ^0.8.0;
 
 import './HydraERC20.sol';
 import './RewardArray.sol';
-// import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
-// can use enumerableset for token whitelist
 
 /*
 TODO: Add events
@@ -69,7 +67,7 @@ contract HydraTreasury {
         emit RemoveCoinFromWhitelist(_token);
     }
 
-    function getWhitelistedCoins() external view returns(address[] memory whitelistedCoins) {
+    function getWhitelistedCoins() public view returns(address[] memory whitelistedCoins) {
         whitelistedCoins = new address[](numWhitelistedCoins);
         uint wli = 0; // index for whitelistedCoins
         for (uint i = 0; i < coinList.length; i++) {
@@ -78,6 +76,10 @@ contract HydraTreasury {
                 wli++;
             }
         }
+    }
+
+    function getNumWhitelist() external view returns(uint numWhitelistedCoins_) {
+        numWhitelistedCoins_ = numWhitelistedCoins;
     }
 
     function addToTreasury(address _token, uint _amountToDeposit) public validCoin(_token) {
