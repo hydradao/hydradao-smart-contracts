@@ -3,18 +3,24 @@ pragma solidity ^0.8.0;
 import './HydraERC20.sol';
 import './RewardArray.sol';
 
-struct TreasurySettings {
-    uint slope;
-    uint currentMintPrice;
-    uint maxMintPrice;
-}
-
+/*
+TODO: Add events
+*/
 contract HydraTreasury {
 
-    address public controller;
+    /* ========== EVENTS ========== */
 
-    // address[] public whitelistedCoins;
-    mapping(address => bool) coinStatus;
+    event AddCoinToWhitelist(address indexed token);
+    event RemoveCoinFromWhitelist(address indexed token);
+    event DepositToTreasury(address indexed token, uint amountDeposited);
+
+    /* ========== STATE VARIABLES ========== */
+
+    address public administrator;
+
+    address[] public coinList;
+    mapping(address => bool) coinStatus;    // whitelist status
+    uint numWhitelistedCoins;
 
     address[] public lastMinters;
     uint8 public numRewardedAddresses; // how many addresses rewarded at end of each round
@@ -22,86 +28,88 @@ contract HydraTreasury {
     uint public totalReserves;
 
     HydraERC20 public hydraToken;
+    RewardArray public rewardArray;
 
-    TreasurySettings treasurySettings;
+    /* ========== CONSTRUCTOR ========== */
 
-    constructor(address _controller, uint _slope, uint256 _initialHydraSupply) {
-        controller = _controller;
-        treasurySettings.slope = _slope;    // Our f(x)
-        hydraToken = new HydraERC20(_initialHydraSupply);
+    constructor(
+        address _administrator, 
+        address _hydraToken) 
+    {
+        administrator = _administrator;
+        hydraToken = HydraERC20(_hydraToken);
     }
 
-    modifier onlyController() {
-        require(msg.sender == controller);
+    /* ========== MODIFIERS ========== */
+
+    modifier onlyAdmin() {
+        require(msg.sender == administrator);
         _;
     }
 
-    modifier validCoin(address _coin) {
-        require(coinStatus[_coin]);
+    modifier validCoin(address _token) {
+        require(coinStatus[_token], "TOKEN NOT ACCEPTED BY TREASURY");
         _;
     }
 
-    function addCoinToWhitelist(IERC20 _token) external onlyController {
-        coinStatus[address(_token)] = true;
+    function addCoinToWhitelist(address _token) external onlyAdmin {
+        require(!coinStatus[_token], "COIN ALREADY WHITELISTED");
+        coinList.push(_token);
+        coinStatus[_token] = true;
+        numWhitelistedCoins++;
+        emit AddCoinToWhitelist(_token);
     }
 
-    function removeCoinFromWhitelist(IERC20 _token) external onlyController {
-        coinStatus[address(_token)] = false;
+    function removeCoinFromWhitelist(address _token) external onlyAdmin {
+        require(coinStatus[_token], "COIN NOT ON WHITELIST");
+        coinStatus[_token] = false;
+        numWhitelistedCoins--;
+        emit RemoveCoinFromWhitelist(_token);
     }
 
-    function addToTreasury(IERC20 _token, uint _amountToDeposit) public {
-        require(coinStatus[address(_token)], "TOKEN NOT ACCEPTED BY TREASURY");
-        require(_token.transfer(address(this), _amountToDeposit), "TRANSACTION FAILED");
+    function getWhitelistedCoins() public view returns(address[] memory whitelistedCoins) {
+        whitelistedCoins = new address[](numWhitelistedCoins);
+        uint wli = 0; // index for whitelistedCoins
+        for (uint i = 0; i < coinList.length; i++) {
+            if (coinStatus[coinList[i]]) {
+                whitelistedCoins[wli] = coinList[i];
+                wli++;
+            }
+        }
     }
 
-    // function floorPrice() public view returns(uint) {
-    //     return hydraToken.totalSupply() / totalReserves;
-    // }
-
-    function getHydraSupply() public view returns(uint) {
-        return hydraToken.totalSupply();
+    function getNumWhitelist() external view returns(uint numWhitelistedCoins_) {
+        numWhitelistedCoins_ = numWhitelistedCoins;
     }
 
-    function getTreasuryValue() public view returns(uint) {
-        // Get value of all stablecoins
+    function addToTreasury(address _token, uint _amountToDeposit) public validCoin(_token) {
+        require(IERC20(_token).transferFrom(msg.sender, address(this), _amountToDeposit), "TRANSACTION FAILED");
+        emit DepositToTreasury(_token, _amountToDeposit);
     }
 
-    function isRoundOver() internal returns(bool) {
-        // Check if FOMO timer has expired. If yes, return true, else false.
-        // Can also add other conditional(s) 
+    function getTokenValue(address _token, uint _amount) public view returns(uint) {
+        return _amount;
     }
 
-    function validBalance() private returns(bool) {
-        // Check if msg.sender has valid balance for minting
+    // get value of all coins in treasury and return
+    function getTotalReserves() public view returns(uint reserves) {
+        for (uint i = 0; i < coinList.length; i++) {
+            if (coinStatus[coinList[i]]) { 
+                reserves += getTokenValue(coinList[i], IERC20(coinList[i]).balanceOf(address(this)));
+            }
+        }
     }
 
-    function distributeReward() internal {
-        // Distribute rewards to last X minters
-        // See RewardArray.sol
-    }
+    function mintHYDR(
+        uint _amountHYDR, 
+        uint _maxPurchasePrice, 
+        address _token, 
+        uint _amountForDeposit
+    ) external onlyAdmin validCoin(_token) {
+        require(_maxPurchasePrice <= getTokenValue(_token, _amountForDeposit), "INSUFFICIENT BALANCE");
 
-    function getPurchasePrice(uint _amountHYDR) public view returns(uint) {
-        uint purchasePrice = 0;
-
-        uint cmp = treasurySettings.currentMintPrice;
-        uint slope = treasurySettings.slope;
-
-        purchasePrice = _amountHYDR * (cmp + (_amountHYDR ** 2) * slope / 2);
-        return purchasePrice;
-    }
-
-    function mintHYDR(uint _amountHYDR, uint maxPurchasePrice, IERC20 _token, uint _amountToDeposit) external payable {
-        uint purchasePrice = getPurchasePrice(_amountHYDR);
-        require(purchasePrice <= maxPurchasePrice, "MAX PURCHASE PRICE EXCEEDED");
-
-        // Check if user has enough to pay for Hydra mint
-        require(validBalance(), "USER DOES NOT HAVE VALID BALANCE");
-        addToTreasury(_token, _amountToDeposit);
+        addToTreasury(_token, _amountForDeposit);
         hydraToken.mint(msg.sender, _amountHYDR);
-
-        treasurySettings.currentMintPrice = treasurySettings.slope * _amountHYDR;
-
-        // If round is over, distribute rewards and reset mint settings
     }
 
 }
