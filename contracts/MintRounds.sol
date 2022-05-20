@@ -1,6 +1,8 @@
 pragma solidity ^0.8.0;
 
 import './RewardArray.sol';
+import './Treasury.sol';
+import './FOMOTimer.sol';
 
 // treasury must give permission to this contract to call mintHYDR
 
@@ -22,23 +24,31 @@ contract MintRounds {
     uint mintedHYDR;
     address public treasuryGuardian;
 
+    HydraTreasury treasury;
+
     RewardArray rewardArray;
+    FOMOTimer fomoTimer;
+
     MintSettings mintSettings;
     MintSettings newMintSettings;
 
-    bool roundActive;
-    bool newMintSettings;
+    bool isRoundActive;
+    bool newMint;
 
     uint roundID;
+
+    mapping(uint => MintSettings) public settingsRecords;   // delete records when claimed
+    mapping(uint => address[]) public rewardsRecords;
 
     // msg.sender must be treasury guardian for mint access
     constructor(
         uint _rewardArraySize,
-        uint _maxRoundAmount,
+        uint _maxRoundAmount
     ) {
-        treasuryGuardian = msg.sender,
+        treasuryGuardian = msg.sender;
         rewardArray = new RewardArray(_rewardArraySize);
-        roundActive = false;
+        fomoTimer = new FOMOTimer();
+        isRoundActive = false;
     }
 
     modifier onlyGuardian() {
@@ -47,7 +57,7 @@ contract MintRounds {
     }
 
     modifier roundActive() {
-        require(roundActive, "NO ROUND ACTIVE");
+        require(isRoundActive, "NO ROUND ACTIVE");
         _;
     }
 
@@ -55,36 +65,37 @@ contract MintRounds {
     // Future versions may change round parameters during round
     function setMintSettings(
         MintSettings memory _mintSettings
-    ) {
+    ) external {
         newMintSettings = _mintSettings;
     }
 
-    function startRoundTimer() {
+    function startRoundTimer() public {
         // Start FOMO timer
     }
 
-    function resetRound() onlyGuardian {
+    function resetRound() public onlyGuardian {
         // reset parameters for new round
-        if (newMintSettings) {
+        if (newMint) {
             mintSettings = newMintSettings;
+            newMint = false;
         }
         startRoundTimer();
     }
 
-    function startRounds() onlyGuardian {
+    function setRoundActive() external onlyGuardian {
         // Start rounds
-        roundActive = true;
+        isRoundActive = true;
 
         resetRound();
     }
 
-    function stopRounds() onlyGuardian {
+    function setRoundInactive() public onlyGuardian {
         // Stop rounds
-        roundActive = false;
+        isRoundActive = false;
     }
 
     function distributeReward() {
-        // Distribute prHYDRA to those in reward array.
+        // Mint prHYDRA to those in reward array.
 
         // emit event with info about the mint round that just ended
         // emit event for reward array 
@@ -95,7 +106,7 @@ contract MintRounds {
     }
 
     function getPurchasePrice(uint _amountHYDR) public view returns(uint purchasePrice) {
-        uint cmp = mintSettings.currentMintPrice;
+        uint cmp = RoundInfo.currentMintPrice;
         uint slope = mintSettings.slope;
 
         purchasePrice = _amountHYDR * (cmp + (_amountHYDR ** 2) * slope / 2);  // area under supply vs price
@@ -110,8 +121,13 @@ contract MintRounds {
         uint _amountForDeposit
     ) external {
         // get purchase price
+        uint purchasePrice = getPurchasePrice(_amountHYDR);
+        require(purchasePrice <= _maxPurchasePrice, "PURCHASE PRICE EXCEEDED MAXIMUM");
 
+        require(purchasePrice <= getTokenValue(_token, _amountForDeposit), "INSUFFICIENT BALANCE");
+        
         // mint from treasury
+        treasury.mintHYDR(_amountHYDR)
 
         // if round is over, reset mint parameters, distribute rewards
 
