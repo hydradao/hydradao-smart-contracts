@@ -1,11 +1,7 @@
-// SPDX-License-Identifier: UNLICENSED
-
 pragma solidity ^0.8.0;
 
-import "hardhat/console.sol";
-
-contract Timer {
-    uint256 private rID_ = 0;
+// Timer contract is created and administered by MintRounds contract
+contract FOMOTimer {
 
     uint256 private constant rndInit_ = 1 hours; // round timer starts at this
     uint256 private constant rndInc_ = 30 seconds; // every full unit purchased adds this much to the timer
@@ -13,88 +9,103 @@ contract Timer {
     uint256 private constant amountUnit_ = 1000000000000000000; // amount / amountUnit_ = how many rndInc_ will be added to the timer
     uint256 private constant amountThreshold_ = 0; // amount has to be larger than the amountThreshold for the timer inc
 
-    // skeleton
+    // Round Info
     struct Round {
+        uint256 roundID; // RoundID created by MintRounds
         uint256 start; // The block that this round started
         uint256 end; // The end block
-        uint256 hydr; // totoal hydr has been minted
-        bool ended; // has round end function been ran
+        bool active; // is round over
     }
 
-    mapping(uint256 => Round) public round_;
+    bool roundActive;
+    uint256 public currRoundID; // ID of current 
+
+    mapping(uint256 => Round) public rounds;
+
+    address public guardian;  // FOMOTimer administered by MintRounds contract
+
+    constructor() {
+        roundActive = false;
+        guardian = msg.sender;
+    }
+
+    modifier isGuardian() {
+        require(msg.sender == guardian, "UNAUTHORIZED");
+        _;
+    }
+
+    modifier isRoundActive() {
+        require(roundActive, "ROUND NOT ACTIVE");
+        _;
+    }
 
     /**
      * @dev returns all current round info needed for front end     
      * @return round id
-     * @return total hydr for round
      * @return time round ends
      * @return time round started
      */
-    function getCurrentRoundInfo()
+    function getRoundInfo()
         public
         view
         returns (
-            uint256,
             uint256,
             uint256,
             uint256
         )
     {
         return (
-            rID_, //1
-            round_[rID_].hydr, //2
-            round_[rID_].end, //3
-            round_[rID_].start //4
+            currRoundID,
+            rounds[currRoundID].end, 
+            rounds[currRoundID].start 
         );
     }
 
-    bool public activated_ = false;
-
-    function activate() public {
+    function activateRound(uint _roundID) public {
         // can only be ran once
-        require(activated_ == false, "Timer already activated");
+        require(!roundActive, "Timer already activated");
 
-        // activate the contract
-        activated_ = true;
+        // activate round
+        roundActive = true;
 
-        // lets start first round
-        rID_ = 1;
-        round_[1].start = block.timestamp;
-        round_[1].end = block.timestamp + rndInit_;
+        uint start = block.timestamp;
+        uint end = start + rndInit_;
+        bool active = true;
+
+        currRoundID = _roundID;
+
+        rounds[_roundID] = Round(_roundID, start, end, active);
     }
 
+    function endRound() private {
+        roundActive = false;
+        rounds[currRoundID].active = false;
+    }
   
-    // returns if this round ends
-    function mint(uint256 _amount) public returns (bool) {
+    // add more time or return if round ended
+    function updateTimer(uint _roundID, uint256 _amount) public isGuardian isRoundActive returns (bool) {
         if (
-            block.timestamp > round_[rID_].start &&
-            (block.timestamp <= round_[rID_].end)
+            block.timestamp > rounds[_roundID].start &&
+            (block.timestamp < rounds[_roundID].end)
         ) {
-            round_[rID_].hydr += _amount;
-            updateTimer(_amount);
+            incrementTime(_amount);
             return false;
         } else {
-            round_[rID_].ended = true;
             endRound();
             return true;
         }
     }
 
-    function updateTimer(uint256 _amount) private {
+    function incrementTime(uint256 _amount) private {
         // calculate time based on number of amount bought
         uint256 _newTime = ((_amount - amountThreshold_) /
-            ((amountUnit_ * rndInc_) + round_[rID_].end));
+            ((amountUnit_ * rndInc_) + rounds[currRoundID].end));
 
         // compare to max and set new end time
-        if (_newTime < (rndMax_) + (block.timestamp))
-            round_[rID_].end = _newTime;
-        else round_[rID_].end = rndMax_ + (block.timestamp);
-    }
-
-    // reset timer
-    function endRound() private {
-        rID_++;
-        round_[rID_].start = block.timestamp;
-        round_[rID_].end = block.timestamp + rndInit_;
+        if (_newTime < (rndMax_ + block.timestamp)) {
+            rounds[currRoundID].end = _newTime;
+        } else {
+            rounds[currRoundID].end = rndMax_ + block.timestamp;
+        }
     }
 }
