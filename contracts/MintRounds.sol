@@ -3,8 +3,16 @@ pragma solidity ^0.8.0;
 import './RewardArray.sol';
 import './Treasury.sol';
 import './FOMOTimer.sol';
+// Reward Hydra that represents right to mint at floor
+import './PHydra.sol'; 
 
 // treasury must give permission to this contract to call mintHYDR
+
+// data structure for reward array element
+struct RewardWinner {
+    address winnerAddr;
+    uint amountPHYDR;
+}
 
 struct MintSettings {
     uint slope;
@@ -32,10 +40,10 @@ contract MintRounds {
     MintSettings mintSettings;
     MintSettings newMintSettings;
 
-    bool isRoundActive;
-    bool newMint;
-
     uint roundID;
+    bool isRoundActive;
+    bool roundsHalted;
+    bool newMint;  // flag whether new mint settings have been written
 
     mapping(uint => MintSettings) public settingsRecords;   // delete records when claimed
     mapping(uint => address[]) public rewardsRecords;
@@ -49,6 +57,7 @@ contract MintRounds {
         rewardArray = new RewardArray(_rewardArraySize);
         fomoTimer = new FOMOTimer();
         isRoundActive = false;
+        roundID = 0;
     }
 
     modifier onlyGuardian() {
@@ -69,11 +78,16 @@ contract MintRounds {
         newMintSettings = _mintSettings;
     }
 
-    function startRoundTimer() public {
-        // Start FOMO timer
+    function startRoundTimer() private {
+        require(!roundsHalted, "MINT ROUNDS HALTED");
+        require(!isRoundActive, "ROUND ALREADY ACTIVE");
+
+        roundID++;
+        fomoTimer.activateTimer(roundID);
+        isRoundActive = true;
     }
 
-    function resetRound() public onlyGuardian {
+    function startNewRound() public onlyGuardian {
         // reset parameters for new round
         if (newMint) {
             mintSettings = newMintSettings;
@@ -82,23 +96,27 @@ contract MintRounds {
         startRoundTimer();
     }
 
-    function setRoundActive() external onlyGuardian {
-        // Start rounds
-        isRoundActive = true;
+    // function setRoundActive() external onlyGuardian {
+    //     roundsHalted = false;
+    //     isRoundActive = true;
+    // }
 
-        resetRound();
-    }
+    // function stopRounds() public onlyGuardian {
+    //     roundsHalted = true;
+    // }
 
-    function setRoundInactive() public onlyGuardian {
-        // Stop rounds
-        isRoundActive = false;
-    }
+    // function setRoundInactive() public onlyGuardian {
+    //     roundsHalted = true;
+    //     isRoundActive = false;
+    // }
 
-    function distributeReward() {
-        // Mint prHYDRA to those in reward array.
-
-        // emit event with info about the mint round that just ended
-        // emit event for reward array 
+    // Mint prHYDRA to those in reward array.
+    function distributeReward() private {
+        RewardWinner[] memory rewardWinners = rewardArray.getRewardWinners();
+        for (uint i = 0; i < rewardWinners.length; i++) {
+            mintPHYDRA(rewardWinners[i].winnerAddr, rewardWinners[i].amountPHYDR);
+        }
+        rewardArray.resetRewardWinners();
     }
 
     function isRoundOver() public returns(bool) {
@@ -112,30 +130,26 @@ contract MintRounds {
         purchasePrice = _amountHYDR * (cmp + (_amountHYDR ** 2) * slope / 2);  // area under supply vs price
     }
 
-    // Need a way to determine round over without depending on mintHYDR calls
-    // If user tries to mint HYDR after the expiry, pay the old round and start new round
+    function getTokenValue(address _token, uint _amount) public view returns(uint) {
+        return _amount;
+    }
+
     function mintHYDR(
         uint _amountHYDR, 
         uint _maxPurchasePrice, 
         address _token, 
         uint _amountForDeposit
     ) external {
-        // get purchase price
         uint purchasePrice = getPurchasePrice(_amountHYDR);
         require(purchasePrice <= _maxPurchasePrice, "PURCHASE PRICE EXCEEDED MAXIMUM");
-
-        require(purchasePrice <= getTokenValue(_token, _amountForDeposit), "INSUFFICIENT BALANCE");
         
+        require(purchasePrice <= getTokenValue(_token, _amountForDeposit), "INSUFFICIENT BALANCE");
         // mint from treasury
-        treasury.mintHYDR(_amountHYDR)
+        treasury.mintHYDR(_amountHYDR, purchasePrice, _token, _amountForDeposit, msg.sender);
 
         // if round is over, reset mint parameters, distribute rewards
 
         // any time elapsed since previous round finished carries into current round
-    }
-
-    function claimReward(uint _roundID) {
-        // Solves the previous problem
     }
 
 }

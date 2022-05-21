@@ -56,7 +56,7 @@ contract FOMOTimer {
     }
 
     // guardian calls activateRound at start of each new round
-    function activateRound(uint _roundID) public isGuardian {
+    function activateTimer(uint _roundID) public isGuardian {
         uint start = block.timestamp;
         uint end = start + rndInit_;
         bool active = true;
