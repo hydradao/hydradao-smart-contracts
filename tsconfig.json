@@ -7,6 +7,12 @@
     "outDir": "dist",
     "suppressImplicitAnyIndexErrors": true,
   },
-  "include": ["./scripts", "./test", "./typechain-types"],
-  "files": ["./hardhat.config.ts"]
+  "include": [
+    "./scripts",
+    "./tests",
+    "./typechain-types"
+  ],
+  "files": [
+    "hardhat.config.ts"
+  ]
 }
