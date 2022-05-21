@@ -43,6 +43,7 @@
   "dependencies": {
     "@openzeppelin/contracts": "^4.6.0",
     "@types/chai-as-promised": "^7.1.5",
+    "dotenv": "^16.0.1",
     "glob": "^8.0.3",
     "ts-generator": "^0.1.1"
   },
