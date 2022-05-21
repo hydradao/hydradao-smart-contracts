@@ -109,15 +109,14 @@ contract HydraTreasury {
 
     function mintHYDR(
         uint _amountHYDR, 
-        uint _maxPurchasePrice, 
         address _token, 
-        uint _amountForDeposit
+        uint _amountForDeposit,
+        address _minter
     ) external approvedMintAddress validCoin(_token) {
-        require(_maxPurchasePrice <= getTokenValue(_token, _amountForDeposit), "INSUFFICIENT BALANCE");
-
+        
         // TODO: calculate amount of tokens to subtract
         addToTreasury(_token, _amountForDeposit);
-        hydraToken.mint(msg.sender, _amountHYDR);
+        hydraToken.mint(_minter, _amountHYDR);
     }
 
 }
