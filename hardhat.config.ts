@@ -1,5 +1,6 @@
 import { task, subtask } from "hardhat/config";
 import '@typechain/hardhat';
+import * as dotenv from 'dotenv';
 import '@nomiclabs/hardhat-ethers';
 import '@nomiclabs/hardhat-waffle';
 import glob from "glob";
@@ -8,6 +9,8 @@ import { NetworkUserConfig } from "hardhat/types";
 
 import { TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD, TASK_TEST_GET_TEST_FILES } from "hardhat/builtin-tasks/task-names";
 import path from "path";
+
+dotenv.config({ path: __dirname+'/.env' });
 
 const chainIds = {
   goerli: 5,
@@ -26,7 +29,7 @@ const alchemyApiKey = process.env.ALCHEMY_API_KEY ?? "NO_ALCHEMY_API_KEY";
 function getChainConfig(network: keyof typeof chainIds): NetworkUserConfig {
   const url = `https://eth-${network}.alchemyapi.io/v2/${alchemyApiKey}`;
   return {
-    accounts: [`${privateKey}`],
+    accounts: [`0x${privateKey}`],
     chainId: chainIds[network],
     url,
   };
@@ -67,10 +70,10 @@ task(TASK_TEST_GET_TEST_FILES, async ({ testFiles }) => {
 const config: HardhatUserConfig = {
   // Your type-safe config goes here
   solidity: "0.8.5",
-  // networks: {
-  //   mainnet: getChainConfig("mainnet"),
-  //   rinkeby: getChainConfig("rinkeby"),
-  // },
+  networks: {
+    mainnet: getChainConfig("mainnet"),
+    rinkeby: getChainConfig("rinkeby"),
+  },
 };
 
 export default config;
