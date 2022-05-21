@@ -1,18 +1,21 @@
 pragma solidity ^0.8.0;
 
-contract RewardArray {
+struct RewardWinner {
+    address winnerAddr;
+    uint amountPHYDR;
+}
 
-    event RewardWinners(address[] rewardWinners);
+contract RewardArray {
 
     uint public bufferSize;
     uint public currIndex;
 
-    address[] public bufferArray;
+    RewardWinner[] public bufferArray;
     address public controller;
 
     constructor(uint _bufferSize) {
         bufferSize = _bufferSize;
-        bufferArray = new address[](_bufferSize);
+        bufferArray = new RewardWinner[](_bufferSize);
         currIndex = 0;
         controller = msg.sender;
     }
@@ -22,30 +25,25 @@ contract RewardArray {
         _;
     }
 
-    modifier resetRewardWinners() {
-        _;
-        eraseArray();
-    }
-
-    function eraseArray() private {
+    function resetRewardWinners() private {
         delete bufferArray;
-        bufferArray = new address[](bufferSize);
+        bufferArray = new RewardWinner[](bufferSize);
         currIndex = 0;
     }
 
-    function appendAddress(address _rewardWinner) external onlyAuth {
-        bufferArray[currIndex] = _rewardWinner;
+    function appendAddress(address _rewardWinner, uint _amountPHYDR) external onlyAuth {
+        bufferArray[currIndex].winnerAddr = _rewardWinner;
+        bufferArray[currIndex].amountPHYDR = _amountPHYDR;
         currIndex = (currIndex + 1) % bufferSize;
     }
 
-    function getRewardWinners() external onlyAuth resetRewardWinners returns(address[] memory) {
-        emit RewardWinners(bufferArray);
+    function getRewardWinners() external view onlyAuth returns(RewardWinner[] memory) {
         return bufferArray;
     }
 
     function changeRewardSize(uint8 _newRewardSize) external onlyAuth {
         bufferSize = _newRewardSize;
-        eraseArray();
+        resetRewardWinners();
     }
 
     function getRewardSize() external view returns(uint) {
