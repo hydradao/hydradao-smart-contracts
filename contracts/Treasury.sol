@@ -17,6 +17,7 @@ contract HydraTreasury {
     /* ========== STATE VARIABLES ========== */
 
     address public administrator;
+    mapping(address => bool) approvedAddress;
 
     address[] public coinList;
     mapping(address => bool) coinStatus;    // whitelist status
@@ -43,7 +44,13 @@ contract HydraTreasury {
     /* ========== MODIFIERS ========== */
 
     modifier onlyAdmin() {
-        require(msg.sender == administrator);
+        require(msg.sender == administrator, "TREASURY ADMINISTRATOR ONLY");
+        _;
+    }
+
+    // MintRounds must be whitelisted to call mint function
+    modifier approvedMintAddress() {
+        require(approvedAddress[msg.sender], "NOT AN APPROVED ADDRESS");
         _;
     }
 
@@ -105,9 +112,10 @@ contract HydraTreasury {
         uint _maxPurchasePrice, 
         address _token, 
         uint _amountForDeposit
-    ) external onlyAdmin validCoin(_token) {
+    ) external approvedMintAddress validCoin(_token) {
         require(_maxPurchasePrice <= getTokenValue(_token, _amountForDeposit), "INSUFFICIENT BALANCE");
 
+        // TODO: calculate amount of tokens to subtract
         addToTreasury(_token, _amountForDeposit);
         hydraToken.mint(msg.sender, _amountHYDR);
     }
