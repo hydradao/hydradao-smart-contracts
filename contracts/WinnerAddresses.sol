@@ -10,8 +10,6 @@ contract WinnerAddresses is FomoTimer {
         uint256 winnersLength
     );
 
-    event Debug(address voter, uint256 votes, bool inFavor);
-
     uint256 public rewardSize = 50;
     uint256 public newRewardSize = 0; // if 0, no new change to reward size
     uint256 public winderAddrIndex = 0;

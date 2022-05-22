@@ -54,6 +54,11 @@ describe("Minting", async () => {
 
   describe("activate and update", async () => {
 
+    it("should be able to get seconds to timer ends", async () => {
+      const secs = await minting.secondsToTimerEnds();
+      expect(secs).to.equal(0);
+    })
+
     it("should be able to get the current round info", async () => {
       const [id, start, end] = getRoundInfo(await minting.getRoundInfo())
       expect(id).to.equal(0);
@@ -78,6 +83,9 @@ describe("Minting", async () => {
 
       const winnerAddrsLength = await minting.winnerAddrsLengths(1)
       expect(winnerAddrsLength).to.equal(50);
+
+      const secs = await minting.secondsToTimerEnds();
+      expect(secs).to.gt(0);
     })
 
     it("should be able get Minting Hydr Amount", async () => {
@@ -110,6 +118,9 @@ describe("Minting", async () => {
       await ethers.provider.send("evm_setNextBlockTimestamp", [end + 1])
       await ethers.provider.send("evm_mine", []) // this one will have 2021-07-01 12:00 AM as its timestamp, no matter what the previous block has
 
+      const secs = await minting.secondsToTimerEnds();
+      expect(secs).to.eq(0);
+
       const amount = "1000000000000000000" // 10 ^ 18
       await minting.connect(alan).mintHYDR("0", dai.address, amount);
 
@@ -124,6 +135,9 @@ describe("Minting", async () => {
       await minting.connect(alan).claimReward(1);
       expect((await minting.getReward(alan.address, 1)).toString()).to.equal("0");
       expect((await prhydr.balanceOf(alan.address)).toString()).to.equal("1000000000000000000");
+
+      const secs2 = await minting.secondsToTimerEnds();
+      expect(secs2).to.gt(0);
     })
 
   })

@@ -110,6 +110,9 @@ contract HydraTreasury {
     }
 
     function getFloorPrice() public view returns (uint256) {
+        if (hydraToken.totalSupply() == 0) {
+            return 0;
+        }
         return (getTotalReserves() * 10**9) / hydraToken.totalSupply();
     }
 
