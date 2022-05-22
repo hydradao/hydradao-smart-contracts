@@ -46,12 +46,12 @@ async function main() {
   // await dai.connect(deployer).approve(minting.address, "1000000000000000000000")
   // await usdc.connect(deployer).approve(minting.address, "1000000000000000000000")
 
-  console.log("hydr: ", hydr.address);
-  console.log("prhydr: " + prhydr.address);
-  console.log("treasury: " + treasury.address);
-  console.log("dai: " + dai.address);
-  console.log("usdc: " + usdc.address);
-  console.log("minting: " + minting.address);
+  console.log(`HYDRA_TREASURY_ADDRESS: "${treasury.address}",`);
+  console.log(`HYDRA_MINTING_ADDRESS: "${minting.address}",`);
+  console.log(`HYDR_ADDRESS: "${hydr.address}",`);
+  console.log(`PRHYDR_ADDRESS: "${prhydr.address}",`);
+  console.log(`DAI_ADDRESS: "${dai.address}",`);
+  console.log(`USDC_ADDRESS: "${usdc.address}",`);
 }
 
 main()

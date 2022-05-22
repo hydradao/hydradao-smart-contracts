@@ -133,8 +133,11 @@ contract Minting is WinnerAddresses {
         return 0;
     }
 
-    function secondsToNextTimerEnds() external view returns (uint256) {
-        return rounds[rID].end - block.timestamp;
+    function secondsToTimerEnds() external view returns (uint256) {
+        if (rounds[rID].end > block.timestamp) {
+            return rounds[rID].end - block.timestamp;
+        }
+        return 0;
     }
 
     function claimReward(uint256 rID) external {
