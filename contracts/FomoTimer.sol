@@ -3,9 +3,9 @@ import "hardhat/console.sol";
 
 // Timer contract is created and administered by MintRounds contract
 contract FomoTimer {
-    uint256 private constant rndInit_ = 1 hours; // round timer starts at this
-    uint256 private constant rndInc_ = 30 seconds; // every full unit purchased adds this much to the timer
-    uint256 private constant rndMax_ = 24 hours; // max length a round timer can be
+    uint256 private constant rndInit_ = 45 seconds; // round timer starts at this
+    uint256 private constant rndInc_ = 5 seconds; // every full unit purchased adds this much to the timer
+    uint256 private constant rndMax_ = 1 minutes; // max length a round timer can be
     uint256 private constant amountUnit_ = 1000000000000000000; // amount / amountUnit_ = how many rndInc_ will be added to the timer
     uint256 private constant amountThreshold_ = 0; // amount has to be larger than the amountThreshold for the timer inc
 

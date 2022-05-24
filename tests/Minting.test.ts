@@ -93,7 +93,7 @@ describe("Minting", async () => {
       const hydrAmount = await minting.getMintingHydrAmount(amount)
       expect(hydrAmount).to.equal(amount);
     })
-
+        
     it("should mint", async () => {
       const amount = "1000000000000000000" // 10 ^ 18
       await minting.connect(alan).mintHYDR(amount, dai.address, amount);

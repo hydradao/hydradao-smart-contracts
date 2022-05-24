@@ -6,6 +6,8 @@ import '@nomiclabs/hardhat-waffle';
 import glob from "glob";
 import { HardhatUserConfig } from "hardhat/config";
 import { NetworkUserConfig } from "hardhat/types";
+import "@matterlabs/hardhat-zksync-deploy";
+import "@matterlabs/hardhat-zksync-solc";
 
 import { TASK_COMPILE_SOLIDITY_GET_SOLC_BUILD, TASK_TEST_GET_TEST_FILES } from "hardhat/builtin-tasks/task-names";
 import path from "path";
@@ -33,7 +35,7 @@ function getChainConfig(network: keyof typeof chainIds): NetworkUserConfig {
 	 * 	Arbitrun Rinkeby link
 		const url = `https://arb-rinkeby.g.alchemy.com/v2/${alchemyApiKey}`;
 	*/
-	
+
 	/**
 	 * Matic testnet
 		const url = `https://polygon-mumbai.g.alchemy.com/v2/${alchemyApiKey}`;
@@ -44,6 +46,7 @@ function getChainConfig(network: keyof typeof chainIds): NetworkUserConfig {
 		accounts: [`0x${privateKey}`],
 		chainId: chainIds[network],
 		url,
+		zksync: false,
 	};
 }
 
@@ -80,9 +83,29 @@ task(TASK_TEST_GET_TEST_FILES, async ({ testFiles }) => {
 
 
 const config: HardhatUserConfig = {
+	zksolc: {
+		version: "0.1.0",
+		compilerSource: "docker",
+		settings: {
+			compilerPath: "zksolc",
+			optimizer: {
+				enabled: true,
+			},
+			experimental: {
+				dockerImage: "matterlabs/zksolc",
+			},
+		},
+	},
+	zkSyncDeploy: {
+		zkSyncNetwork: "https://zksync2-testnet.zksync.dev",
+		ethNetwork: "goerli", // Can also be the RPC URL of the network (e.g. `https://goerli.infura.io/v3/<API_KEY>`)
+	},
 	// Your type-safe config goes here
 	solidity: "0.8.5",
 	networks: {
+		hardhat: {
+			zksync: true,
+		},
 		mainnet: getChainConfig("mainnet"),
 		rinkeby: getChainConfig("rinkeby"),
 		mumbai: getChainConfig("mumbai"),
